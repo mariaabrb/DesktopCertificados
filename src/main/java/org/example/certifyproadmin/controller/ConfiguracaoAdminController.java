@@ -1,14 +1,20 @@
 package org.example.certifyproadmin.controller;
 
-import org.example.certifyproadmin.model.CriarInstituicaoDto;
-import org.example.certifyproadmin.service.ApiService;
+import org.example.certifyproadmin.model.UsuarioDAO; // Assumindo que o DAO existe
+import org.example.certifyproadmin.model.Usuario;
+import org.example.certifyproadmin.utils.JPAUtils;
+import jakarta.persistence.EntityManager;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextField;
 import javafx.scene.control.PasswordField;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
-public class CriarAdminController {
+public class ConfiguracaoAdminController {
+
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @FXML private TextField nomeInstField;
     @FXML private TextField nomeAdminField;
@@ -16,43 +22,46 @@ public class CriarAdminController {
     @FXML private TextField emailAdminField;
     @FXML private PasswordField senhaAdminField;
 
-    private final ApiService apiService;
+    public void cadastrarAdmin(ActionEvent event) {
+        String nomeInst = nomeInstField.getText();
+        String nomeAdmin = nomeAdminField.getText();
+        String email = emailAdminField.getText();
+        String senha = senhaAdminField.getText();
+        String cpf = cpfAdminField.getText();
 
-    public CriarAdminController() {
-        this.apiService = new ApiService();
-    }
-
-    @FXML
-    public void handleSalvar(ActionEvent event) {
-        if (nomeInstField.getText().isEmpty() || emailAdminField.getText().isEmpty() || senhaAdminField.getText().isEmpty()) {
+        if (nomeInst.isEmpty() || nomeAdmin.isEmpty() || email.isEmpty() || senha.isEmpty()) {
             mostrarAlerta(Alert.AlertType.ERROR, "Erro", "Preencha todos os campos obrigatórios.");
             return;
         }
 
-        CriarInstituicaoDto dto = new CriarInstituicaoDto(
-                nomeInstField.getText(),
-                nomeAdminField.getText(),
-                emailAdminField.getText(),
-                senhaAdminField.getText(),
-                cpfAdminField.getText()
-        );
+        EntityManager entityManager = null;
 
-        boolean sucesso = apiService.criarInstituicao(dto);
+        try {
+            entityManager = JPAUtils.getEntityManager();
+            UsuarioDAO usuarioDAO = new UsuarioDAO(entityManager);
 
-        if (sucesso) {
-            mostrarAlerta(Alert.AlertType.INFORMATION, "Sucesso!", "Administrador criado! Você já pode fechar o Desktop e logar na Web.");
-            limparCampos();
-        } else {
-            mostrarAlerta(Alert.AlertType.ERROR, "Falha", "Não foi possível criar. Verifique o console do backend (409 CONFLICT se já existir Admin).");
+            String senhaCriptografada = passwordEncoder.encode(senha);
+
+            Usuario usuarioBanco = new Usuario();
+            usuarioBanco.setNome(nomeAdmin);
+            usuarioBanco.setEmail(email);
+            usuarioBanco.setSenha(senhaCriptografada);
+            usuarioBanco.setCpf(cpf);
+            usuarioBanco.setRole("ROLE_ADMIN");
+            usuarioBanco.setNomeInstituicao(nomeInst);
+
+            usuarioDAO.salvar(usuarioBanco);
+
+            mostrarAlerta(Alert.AlertType.INFORMATION, "Sucesso", "Admin cadastrado com sucesso!");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta(Alert.AlertType.ERROR, "Falha ao Cadastrar", "Falha: O e-mail ou CPF já existem ou houve erro de conexão.");
+        } finally {
+            if (entityManager != null && entityManager.isOpen()) {
+                entityManager.close();
+            }
         }
-    }
-
-    private void limparCampos() {
-        nomeInstField.clear();
-        nomeAdminField.clear();
-        cpfAdminField.clear();
-        emailAdminField.clear();
-        senhaAdminField.clear();
     }
 
     private void mostrarAlerta(Alert.AlertType type, String titulo, String mensagem) {
@@ -62,4 +71,5 @@ public class CriarAdminController {
         alert.setContentText(mensagem);
         alert.showAndWait();
     }
+
 }

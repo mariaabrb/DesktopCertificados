@@ -1,13 +1,30 @@
 package org.example.certifyproadmin.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.example.certifyproadmin.model.Usuario;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
 
-@Data
-@AllArgsConstructor
-public class UsuarioDto {
-    private String nome;
-    private String email;
-    private String senha;
-    private String cpf;
+public class UsuarioDAO {
+    private EntityManager entityManager;
+
+    public UsuarioDAO(EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    public void salvar(Usuario u) {
+        EntityTransaction transaction = null;
+        try {
+            transaction = entityManager.getTransaction();
+            transaction.begin();
+
+            entityManager.persist(u);
+
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw e;
+        }
+    }
 }
